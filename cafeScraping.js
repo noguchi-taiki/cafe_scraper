@@ -27,7 +27,7 @@ const { headers } = require('next/headers');
         page.click(`a.tile-2col-link`),
      ])
 
-     const elementHandle = await page.waitForSelector("div.search-spot > div.search-spot-item > search-spot-link > search-spot-body > search-spot-icon smoking > search-spot-name");
+     const elementHandle = await page.waitForSelector("");
      const data = await page.evaluate(element => element.textContent, elementHandle);
      console.log(data);
 
