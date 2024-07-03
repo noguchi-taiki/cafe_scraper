@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const mysql = require('mysql2/promise');
+const { headers } = require('next/headers');
 
 (async()=> {
     try{
@@ -11,40 +12,32 @@ const mysql = require('mysql2/promise');
         password: "root",
     })
     console.log("mysqlに接続");
-    
 
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
-    await page.goto('https://www.clubjt.jp/map');
+    await page.goto('https://www.clubjt.jp/place/spot/pref-13/');
+    await Promise.all([
+        // page,waitForNavigation({waitUntil:`load`}),
+        page.click("button.jtoc-adult-auth-modal__button-yes"),
+        page.click(`a.tile-2col-link`),
+    ])
     console.log("ページにアクセス");
+     await Promise.all([
+        page.waitForNavigation({waitUntil:`load`}),
+        page.click(`a.tile-2col-link`),
+     ])
 
-    const cafeUrls = await page.evaluate(()=>{
-        const links = Array.from(document.querySelectorAll('a[href*="cafe"]'));
-        return links.map(links => links.href);
-    });
+     const elementHandle = await page.waitForSelector("div.search-spot > div.search-spot-item > search-spot-link > search-spot-body > search-spot-icon smoking > search-spot-name");
+     const data = await page.evaluate(element => element.textContent, elementHandle);
+     console.log(data);
 
-    console.log(cafeUrls);
+    // while(true){
 
-    for(const url of cafeUrls){
-        const urlObj = new URL(url);
-        const latitude = urlObj.searchParams.get('lat');
-        const longitude = urlObj.searchParams.get('lng');
-
-        console.log("URL:",url);
-        
-        if(latitude && longitude){
-            try{
-                const query = "insert into cafes (url,latitude,longitude) values(?,?,?);"
-                const values = [url,parseFloat(latitude),parseFloat(longitude)];
-                const [result] = await connection.query(query,values);
-            }catch(queryError){
-                console.error(queryError);
-            }
-        }
-    }
+    // }
+    
     await browser.close();
     await connection.end();
-    console.log("データが取得された");
+
 } catch(error) {
     console.error("Error",error);
 }
