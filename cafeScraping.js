@@ -3,6 +3,7 @@ const mysql = require('mysql2/promise');
 const { headers } = require('next/headers');
 
 (async()=> {
+    const browser = await puppeteer.launch({ headless: false });
     try{
     const connection = await mysql.createConnection({
         host: "127.0.0.1",
@@ -13,7 +14,6 @@ const { headers } = require('next/headers');
     })
     console.log("mysqlに接続");
 
-    const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
     await page.goto('https://www.clubjt.jp/place/spot/pref-13/');
     await Promise.all([
@@ -27,18 +27,32 @@ const { headers } = require('next/headers');
         page.click(`a.tile-2col-link`),
      ])
 
-     const elementHandle = await page.waitForSelector("");
-     const data = await page.evaluate(element => element.textContent, elementHandle);
-     console.log(data);
+    //  const listSelector = "some selector";
+    //puppeteerにおけるデータの取得は様々やり方があるので都度調べる必要がありそう。
+    //下記はxpathでデータを取得してそこからecaluateで文字を持ってきてる（備忘録）
 
-    // while(true){
+    let i = 1;
+    // const xpath = `/html/body/div[2]/main/div[5]/div[${i}]/a/div[1]/div[2]`;
+    // const elem = await page.waitForSelector(`::-p-xpath(${xpath})`);//$x()はバージョンの関係で使えない
+    // const text = await elem.evaluate(el => el.textContent);
+    // console.log(text);
 
-    // }
-    
-    await browser.close();
-    await connection.end();
-
+    while(true){
+        const xpath = `/html/body/div[2]/main/div[5]/div[${i}]/a/div[1]/div[2]`;
+        const iconXpsath = `/html/body/div[2]/main/div[5]/div[${i}]/a/div[1]/div[1]`;
+        const iconElem = await page.$(`::-p-xpath(${iconXpsath})`);
+        console.log(iconElem);
+        const elem = await page.$(`::-p-xpath(${xpath})`);
+        if(elem == null){break;}
+        const text = await elem.evaluate(el => el.textContent);
+        console.log(text);
+        console.log(i);
+        i = i+1;
+    }
+    console.log("while文及びブレイク文は正常に動作");
 } catch(error) {
     console.error("Error",error);
+} finally {
+    await browser.close();
 }
 })();
