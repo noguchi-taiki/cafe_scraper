@@ -3,27 +3,51 @@ const mysql = require('mysql2/promise');
 const { createConnection } = require('mysql2');
 
 (async()=> {
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({ });
+    // headless: false
     try{
     console.log("mysqlに接続");
     console.log("ページにアクセス");
 
     const page = await browser.newPage();
     await page.goto('https://www.clubjt.jp/place/spot/pref-13/');
+
+    let stations = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.textContent)});
+    console.log(stations.length);
+
     await Promise.all([
+        page.waitForNavigation({ waitUntil:'load'}),
+        page.waitForSelector('button.jtoc-adult-auth-modal__button-yes'),
         page.waitForSelector(`a.tile-2col-link`),
         page.click("button.jtoc-adult-auth-modal__button-yes"),
         page.click(`a.tile-2col-link`),
     ])
+
+    let links = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.href)});
+    console.log(links.length);
+
+
      await Promise.all([
-        page.waitForSelector(`a.tile-2col-link`),
-        page.click(`a.tile-2col-link`),
+        // page.waitForSelector(`a.tile-2col-link`),
+        // page.click(`a.tile-2col-link`),
+        page.waitForNavigation({ waitUntil:'load'}),
+        page.goto(links[0]),
      ])
 
     //  const listSelector = "some selector";
     //puppeteerにおけるデータの取得は様々やり方があるので都度調べる必要がありそう。
-    //下記はxpathでデータを取得してそこからecaluateで文字を持ってきてる（いつぞやの備忘録）
+    //（いつぞやの備忘録）
 
+
+
+    let k=0;
+    while(k<links.length){ 
+
+    if(k<=1){
+        await Promise.all([
+            page.goto(links[k]),
+            page.waitForNavigation({ waitUntil:'load'}),
+        ])}
     let i = 1;
     const names = [];
     const details = [];
@@ -53,7 +77,14 @@ const { createConnection } = require('mysql2');
         }
         i = i+1;
     }
-    console.log("while文及びbreake文は正常に動作");
+    i=0;
+    while(i < names.length){
+        // let sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}");`
+        // const reslt = connection.query(sql);
+        console.log(names[i]);
+        i++;
+    }
+    page.goBack();k++;}
 
     const connection = await mysql.createConnection({
         host: "127.0.0.1",
@@ -62,12 +93,7 @@ const { createConnection } = require('mysql2');
         user: "root",
         password: "root",
     })
-    i=0;
-    while(i < names.length){
-        let sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}");`
-        const reslt = connection.query(sql);
-        i++;
-    }
+
     connection.end();
     
 //今回のようにDBに1種類しかqueryを飛ばさないものならこの書き方でもいいけど
