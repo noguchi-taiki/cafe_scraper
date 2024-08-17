@@ -3,26 +3,47 @@ const mysql = require('mysql2/promise');
 const { createConnection } = require('mysql2');
 
 (async()=> {
-    const browser = await puppeteer.launch({ });
-    // headless: false
+    const browser = await puppeteer.launch({ 
+        headless: false,
+        // args: [
+        //     '--disable-features=IsolateOrigins,site-per-process',
+        //     '--disable-web-security',
+        //     '--disable-features=SameSiteByDefaultCookies'
+        //   ]
+     });
+
+    
+    
     try{
     console.log("mysqlに接続");
     console.log("ページにアクセス");
 
     const page = await browser.newPage();
+
+    await page.setRequestInterception(true);
+    page.on('request', request => {
+      if (request.url().includes('cookie') || request.url().includes('cookie')) {
+        request.abort(); // クッキー関連のリクエストを中止
+      } else {
+        request.continue();
+      }
+    });
+
     await page.goto('https://www.clubjt.jp/place/spot/pref-13/');
 
-    let stations = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.textContent)});
-    console.log(stations.length);
+    let citys = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.href)});
+    console.log(citys[0]);
 
     await Promise.all([
         page.waitForNavigation({ waitUntil:'load'}),
         page.waitForSelector('button.jtoc-adult-auth-modal__button-yes'),
-        page.waitForSelector(`a.tile-2col-link`),
         page.click("button.jtoc-adult-auth-modal__button-yes"),
+        page.waitForSelector(`a.tile-2col-link`),
         page.click(`a.tile-2col-link`),
+        // page.goto(citys[0]),
     ])
 
+    await page.waitForSelector('a.tile-2col-link');
     let links = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.href)});
     console.log(links.length);
 
@@ -42,8 +63,8 @@ const { createConnection } = require('mysql2');
 
     let k=0;
     while(k<links.length){ 
-
-    if(k<=1){
+        console.log(k);
+    if(k>=1){
         await Promise.all([
             page.goto(links[k]),
             page.waitForNavigation({ waitUntil:'load'}),
@@ -84,7 +105,7 @@ const { createConnection } = require('mysql2');
         console.log(names[i]);
         i++;
     }
-    page.goBack();k++;}
+    k++;await page.goto(citys[0]);}
 
     const connection = await mysql.createConnection({
         host: "127.0.0.1",
