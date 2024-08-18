@@ -2,7 +2,6 @@ const puppeteer = require('puppeteer');
 const mysql = require('mysql2/promise');
 const { createConnection } = require('mysql2');
 const { getLatLng } = require('./community-geocoder/src/api.js');
-const { resolve } = require('styled-jsx/css');
 
 (async()=> {
     const browser = await puppeteer.launch({ 
@@ -67,8 +66,8 @@ const { resolve } = require('styled-jsx/css');
 
     let nextPage = await page.$('a.btn-small-normal');
     let k=0;
-    // while(k<links.length){ 開発用一時コメン
-    while(k<3){
+    while(k<links.length){
+    // while(k<3){
     if(k>=1&&nextPage==null){
         await Promise.all([
             page.goto(links[k]),
@@ -81,7 +80,7 @@ const { resolve } = require('styled-jsx/css');
     let names = [];
     let details = [];
     let addresses = [];
-    let latLng = [];
+    let LngLat = [];
 
     while(i < itemsElems.length){
         let elem = itemsElems[i];
@@ -104,21 +103,18 @@ const { resolve } = require('styled-jsx/css');
             addressText = addressText.replace(/\n/g,"");
             addressText = addressText.replace(/ /g,"");
             addresses.push(addressText);
-            // getLatLng(addressText,result=>{latLng.push(result)});
         }
         i = i+1;
     }
     i=0;
     while(i < names.length){
-        // console.log(addresses[i]);
         getLatLng(addresses[i], result => {
-            latLng[i] = `${result.lat},${result.lng}`;
-            // console.log(latLng[i]);
+            LngLat[i] = `${result.lng},${result.lat}`;
         }, error => {
             console.error("Error getting lat/lng", error);
         });
-        // let sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}");`
-        // const reslt = connection.query(sql);
+        let sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}",${LngLat[i]});`
+        const reslt = connection.query(sql);
         i++;
     }
 
