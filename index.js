@@ -45,6 +45,8 @@ const { createConnection } = require('mysql2');
 
     await page.waitForSelector('a.tile-2col-link');
     let links = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.href)});
+    let linksName = await page.$$eval('tile-2col-word',list => {return list.map(data => data.textContent)});
+    console.log(linksName.length);
     console.log(links.length);
 
 
@@ -63,7 +65,8 @@ const { createConnection } = require('mysql2');
 
     let nextPage = await page.$('a.btn-small-normal');
     let k=0;
-    while(k<links.length){ 
+    // while(k<links.length){ 開発用一時コメン
+    while(k<3){
     if(k>=1&&nextPage==null){
         await Promise.all([
             page.goto(links[k]),
@@ -106,6 +109,7 @@ const { createConnection } = require('mysql2');
         // let sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}");`
         // const reslt = connection.query(sql);
         console.log(names[i]);
+        // console.log(linksName[k]);
         i++;
     }
 
