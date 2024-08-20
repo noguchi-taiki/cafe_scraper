@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const mysql = require('mysql2/promise');
 const { createConnection } = require('mysql2/promise');
 const { getLatLng } = require('./community-geocoder/src/api.js');
+const { resolve } = require('styled-jsx/css');
 
 (async()=> {
 
@@ -88,7 +89,8 @@ while(k<citys.length){
     let names = [];
     let details = [];
     let addresses = [];
-    let LngLat = [];
+    let lat = [];
+    let lng = [];
 
     while(i < itemsElems.length){
         let elem = itemsElems[i];
@@ -115,20 +117,48 @@ while(k<citys.length){
         i = i+1;
     }
     i=0;
+    let sql;
     while(i < names.length){
-        await new Promise((resolve, reject) => {
-            getLatLng(addresses[i], result => {
-                LngLat[i] = `${result.lng} ${result.lat}`;
-                resolve();
-            }, error => {
-                console.error("Error getting lat/lng", error);
-                reject(error);
-            });
-        });
-        // let sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}",ST_PointFromText("POINT(${LngLat[i]})"));`
-        // const reslt = await connection.query(sql);
-        if(LngLat!=null){console.log(names[i]+" のデータ群を格納した")}else{console.log('names[i]+" のデータ群を格納したが経度緯度がnull。')};
+            function getLL(){
+            return new Promise((resolve,reject)=>{
+                getLatLng(addresses[i],result=>{
+                    if(result.lng!=null){
+                        lng[i] = result.lng;
+                        lat[i] = result.lat;
+                        resolve(lng[i],lat[i]);
+                    } else {
+                        lng[i] = null;
+                        lat[i] = null;
+                        resolve(lng[i],lat[i])
+                    }
+                })
+            })
+        }
+        async function checkLL() {
+            try {
+                await getLL();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        await checkLL();//めちゃくちゃ苦戦した
+        //説明、元々非同期処理の関数で値を取ってくる外部メソッドのため
+        //元のグローバル変数とともに計算したり評価したりしようとすると
+        //どちらかが先に出力されてしまい同じスコープ内でのifによる評価ができなかった
+        //そのためすべてをasync（非同期関数）で括ってそれをawaitにて実行することで成功した
+        console.log(lat[i]);
+        console.log(names[i]);
 
+
+        // if(lat[i]!=null){
+        //     sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}","${lng[i]}","${lat[i]}"));`
+        // } else {sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}",null,null);`}
+
+        // const result = async () => {
+        //     await connection.query(sql);
+        // }
+        // result();
+            
         i++;
     };
     nextPage = await page.$('a.btn-small-normal');
