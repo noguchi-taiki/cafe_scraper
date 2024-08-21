@@ -1,3 +1,18 @@
-const { getLatLng } = require('./community-geocoder/src/api.js');
+const { exec } = require('child_process');
+let en = 0;
+let nextEn = 1;
 
-getLatLng("東京都中央区八重洲２-２-７",result=>{console.log(result)});
+const codeString = `
+const { exec } = require("child_process");\n
+let start = ${en};\n
+let end = ${nextEn};\n
+exec("node index.js \\\${start}\ \\\${end}\", (error, stdout) => {\n
+    if (error) {\n
+        console.error(\`Error: \\\${error.message}\`);\n
+        return;\n
+    }\n
+    console.log(stdout);\n
+});\n
+`;
+
+console.log(codeString);

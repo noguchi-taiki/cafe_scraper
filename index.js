@@ -1,8 +1,14 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
 const mysql = require('mysql2/promise');
 const { createConnection } = require('mysql2/promise');
 const { getLatLng } = require('./community-geocoder/src/api.js');
-const { resolve } = require('styled-jsx/css');
+const { collapseTextChangeRangesAcrossMultipleVersions } = require('typescript');
+
+let st = process.argv[2];
+let en = process.argv[3]
+en = Number(en);
+let nextEn = en+1;
 
 (async()=> {
 
@@ -16,7 +22,7 @@ const { resolve } = require('styled-jsx/css');
 
 
     const browser = await puppeteer.launch({ 
-        headless: true,
+        headless: false,
         // args: [
         //     '--disable-features=IsolateOrigins,site-per-process',
         //     '--disable-web-security',
@@ -42,6 +48,7 @@ const { resolve } = require('styled-jsx/css');
     await page.goto('https://www.clubjt.jp/place/spot/pref-13/');
 
     let citys = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.href)});
+    let citysText = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.textContent)});
 
     await Promise.all([
         page.waitForNavigation({ waitUntil:'load'}),
@@ -70,20 +77,19 @@ const { resolve } = require('styled-jsx/css');
     //（いつぞやの備忘録）
 
 
-
-let k = 0;
-while(k<citys.length){
+let k = st
+// let k = 0;
+// while(k<citys.length){
+while(k<en){
     let nextPage = await page.$('a.btn-small-normal');
     let j=0;
     while(j<links.length){
-    // while(j<3){
+    // while(j<2){
     if(j>=1&&nextPage==null){
         await Promise.all([
             page.goto(links[j]),
             page.waitForNavigation({ waitUntil:'load'}),
         ])}
-        // console.log(j+1 +' ページ目に移動しました。');
-
     let i = 0;
     let itemsElems = await page.$$(".search-spot-item");
     let names = [];
@@ -94,24 +100,27 @@ while(k<citys.length){
 
     while(i < itemsElems.length){
         let elem = itemsElems[i];
-
         let smokingIcon = await elem.$(".search-spot-link .search-spot-body .cafe");
         if(smokingIcon != null){
             let spotNameElem = await elem.$(".search-spot-link .search-spot-body .search-spot-name");
             let spotNameText = await spotNameElem.evaluate(el => el.textContent);
+            spotNameText = spotNameText.replace(/\"/g,"");
+            spotNameText = spotNameText.replace(/\n/g,"");
             names.push(spotNameText);
 
             let tobaccoDetailElem1 = await elem.$(".search-spot-link .search-spot-tag .tobacco");
             let tobaccoDetailText = await tobaccoDetailElem1.evaluate(el => el.textContent);
             tobaccoDetailText += ",";
-            const tobaccoDetailElem2 = await elem.$(".search-spot-link .search-spot-tag .tag");
+            let tobaccoDetailElem2 = await elem.$(".search-spot-link .search-spot-tag .tag");
             tobaccoDetailText += await tobaccoDetailElem2.evaluate(el => el.textContent);
+            tobaccoDetailText = tobaccoDetailText.replace(/\"/g,"");
             details.push(tobaccoDetailText);
 
             let addresElem = await elem.$(".search-spot-link .search-spot-body .search-spot-shopinfo");
             let addressText = await addresElem.evaluate(el => el.textContent);
             addressText = addressText.replace(/\n/g,"");
             addressText = addressText.replace(/ /g,"");
+            addressText = addressText.replace(/\"/g,"");
             addresses.push(addressText);
         }
         i = i+1;
@@ -146,20 +155,18 @@ while(k<citys.length){
         //元のグローバル変数とともに計算したり評価したりしようとすると
         //どちらかが先に出力されてしまい同じスコープ内でのifによる評価ができなかった
         //そのためすべてをasync（非同期関数）で括ってそれをawaitにて実行することで成功した
-        console.log(lat[i]);
-        console.log(names[i]);
 
 
-        // if(lat[i]!=null){
-        //     sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}","${lng[i]}","${lat[i]}"));`
-        // } else {sql = `insert into tokyo values("${addresses[i]}","${names[i]}","${details[i]}",null,null);`}
+        if(lat[i]!=null){
+            sql = `INSERT INTO tokyo (address, name, details, lat, lng) VALUES("${addresses[i]}","${names[i]}","${details[i]}",${lat[i]},${lng[i]});`
+        } else {sql = `INSERT INTO tokyo (address, name, details, lat, lng) VALUES("${addresses[i]}","${names[i]}","${details[i]}",null,null);`}
 
-        // const result = async () => {
-        //     await connection.query(sql);
-        // }
-        // result();
-            
-        i++;
+        const result = () => {
+            console.log(names[i]);
+            connection.query(sql);
+        }
+        result();
+            i++;
     };
     nextPage = await page.$('a.btn-small-normal');
     if(nextPage!=null){
@@ -171,25 +178,34 @@ while(k<citys.length){
         nowpageNum = Number(nowpageNum);
         if(nextPagesnum.indexOf(nowpageNum+1) != -1){
             tmp = nextPagesnum.indexOf(nowpageNum+1);
-            Promise.all([
-                await page.goto(nextPagesArray[tmp]),
+            await Promise.all([
+                page.goto(nextPagesArray[tmp]),
                 page.waitForNavigation({ waitUntil:'load'}),
-                itemsElems = await page.$$(".search-spot-item"),
             ])
+            itemsElems = await page.$$(".search-spot-item");
             names = [];
             details = [];
-            addresses = [];
-        // } else {console.log('not difind next page');nextPage=null;j++;await page.goto(citys[0]);}
-        } else {nextPage=null;j++;await page.goto(citys[0]);}
+            addresses = [];//後で必要かどうか確認するおそらくいらない
+        } else {
+            nextPage=null;
+            j++;
+            await page.goto(citys[k]);
+        }} else {
+            nextPage=null;
+            j++;
+            await page.goto(citys[k]);
+        }
+    }
+k++;
+Promise.all([
+await page.goto(citys[k]),
+links = await page.$$eval('a.tile-2col-link',list => {return list.map(data => data.href)}),
+])
+await page.goto(links[0]);
+j=0;
+}
 
-    // } else {console.log('not difind next page');nextPage=null;j++;await page.goto(citys[0]);}
-    } else {nextPage=null;j++;await page.goto(citys[0]);}
-} await page.goto(citys[k]);k++;}
-
-
-    // j++;await page.goto(citys[0]);}
-
-    connection.end();
+connection.end();
     
 //今回のようにDBに1種類しかqueryを飛ばさないものならこの書き方でもいいけど
 //今後複数回DBのqueryを使うwebアプリの時はDB.js(DB.ts)のように、
@@ -198,7 +214,21 @@ while(k<citys.length){
 } catch(error) {
     console.error("Error",error);
 } finally {
-    console.log('すべての処理が終了しました。')
+    console.log('すべての処理が終了しました。');
+    const codeString = `
+    const { exec } = require("child_process");\n
+    let start = ${en};\n
+    let end = ${nextEn};\n
+    exec("node index.js \\\${start}\ \\\${end}\", (error, stdout) => {\n
+        if (error) {\n
+            console.error(\`Error: \\\${error.message}\`);\n
+            return;\n
+        }\n
+        console.log(stdout);\n
+    });\n
+    `;
+    const fs = require('fs');
+    fs.writeFileSync('exe.js', codeString);
     await browser.close();
 }
 })();
